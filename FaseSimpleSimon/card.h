@@ -17,8 +17,6 @@ void shuffleDeck(int *deck, int size);
 int getValue(Carta c);
 // Retorna o carater correspondente ao naipe de uma dada carta.
 char *getSuite(Carta c);
-// Verifica se a jogada e valida segundo as regras do Golf (diferenca de valores igual a 1).
-int podeJogar(Carta a, Carta b);
 
 
 #endif

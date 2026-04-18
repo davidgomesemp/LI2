@@ -81,16 +81,3 @@ void shuffleDeck(int *deck, int size) {
         }
 }
 
-// -----------------------------------------------------------------------------
-// Função: podeJogar
-// Objetivo: Verificar se uma carta pode ser colocada sobre a outra (regra do Golf).
-// Parâmetros: a - Carta que já está no topo do descarte.
-//             b - Carta que o jogador quer jogar.
-// Retorno: 1 (Verdadeiro) se a jogada for válida, 0 (Falso) caso contrário.
-// -----------------------------------------------------------------------------
-int podeJogar(Carta a, Carta b) {
-        // abs(): Devolve o valor absoluto da diferença matemática (ex: abs(4-5) = 1).
-        // Se a diferença entre os valores for exatamente 1, a regra é cumprida.
-        return abs(a.value - b.value) == 1;
-}
-
