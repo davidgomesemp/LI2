@@ -9,17 +9,52 @@ typedef struct {
     int topo;         // Indice da carta que esta no topo da pilha (-1 significa que esta vazia).
 } Stack;
 
-// Adiciona uma nova carta ao topo da pilha (Push).
+// -----------------------------------------------------------------------------
+// Função: meter
+// Objetivo: Adiciona uma nova carta ao topo da pilha (Push).
+// Parâmetros: s - Apontador para a pilha; c - Carta a ser adicionada.
+// Retorno: Nenhum.
+// -----------------------------------------------------------------------------
 void meter(Stack *s, Carta c);
-// Remove e retorna a carta que esta no topo da pilha (Pop).
+
+// -----------------------------------------------------------------------------
+// Função: tirar
+// Objetivo: Remove e retorna a carta que esta no topo da pilha (Pop).
+// Parâmetros: s - Apontador para a pilha.
+// Retorno: A Carta removida do topo da pilha.
+// -----------------------------------------------------------------------------
 Carta tirar(Stack *s);
-// Retorna a carta do topo sem a remover da pilha (Peek).
+
+// -----------------------------------------------------------------------------
+// Função: verTopo
+// Objetivo: Retorna a carta do topo sem a remover da pilha (Peek).
+// Parâmetros: s - Apontador para a pilha.
+// Retorno: A Carta que se encontra no topo da pilha.
+// -----------------------------------------------------------------------------
 Carta verTopo(Stack *s);
-// Verifica se a pilha esta vazia (retorna 1 se sim, 0 se nao).
+
+// -----------------------------------------------------------------------------
+// Função: isEmpty
+// Objetivo: Verifica se a pilha esta vazia.
+// Parâmetros: s - Apontador para a pilha.
+// Retorno: 1 (verdadeiro) se a pilha estiver vazia, ou 0 (falso) caso contrario.
+// -----------------------------------------------------------------------------
 int isEmpty(Stack *s);
-// Retorna a quantidade atual de cartas guardadas na pilha.
+
+// -----------------------------------------------------------------------------
+// Função: size
+// Objetivo: Retorna a quantidade atual de cartas guardadas na pilha.
+// Parâmetros: s - Apontador para a pilha.
+// Retorno: Inteiro correspondente ao numero de cartas na pilha.
+// -----------------------------------------------------------------------------
 int size(Stack *s);
-// Inicializa a pilha recem-criada, colocando o topo a -1.
+
+// -----------------------------------------------------------------------------
+// Função: initStack
+// Objetivo: Inicializa a pilha recem-criada, colocando o topo a -1.
+// Parâmetros: s - Apontador para a pilha a ser inicializada.
+// Retorno: Nenhum.
+// -----------------------------------------------------------------------------
 void initStack(Stack *s);
 
 #endif
