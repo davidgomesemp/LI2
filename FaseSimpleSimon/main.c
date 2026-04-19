@@ -31,10 +31,17 @@ int letraParaIndice(char letra)
 // -----------------------------------------------------------------------------
 void mostrarAjuda()
 {
-    printf("Comandos:\n");
-    printf("  A D 1   -> move 1 carta da coluna A para a D\n");
-    printf("  B F 3   -> move 3 cartas da coluna B para a F\n");
-    printf("  sair    -> termina o jogo\n\n");
+    printf("========================================================\n");
+    printf("                       COMO JOGAR                       \n");
+    printf("========================================================\n");
+    printf(" Formato do comando: [ORIGEM] [DESTINO] [QUANTIDADE]\n");
+    printf(" (Colunas validas: A ate J)\n\n");
+    
+    printf(" Exemplos Praticos:\n");
+    printf("   A D 1  -> Move 1 carta da coluna A para a coluna D\n");
+    printf("   B F 3  -> Move 3 cartas em bloco da coluna B para a F\n");
+    printf("   sair   -> Desiste e termina o jogo\n");
+    printf("========================================================\n\n");
 }
 
 // -----------------------------------------------------------------------------

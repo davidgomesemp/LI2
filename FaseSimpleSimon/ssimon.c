@@ -2,6 +2,7 @@
 #include "card.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // -----------------------------------------------------------------------------
 // Função: distribuirCartas
@@ -43,7 +44,7 @@ void inicializarSimon(SimonState *estado) {
 int blocoValido(Carta bloco[], int qtd) {
     for (int i = 1; i < qtd; i++) {
     if (getValue(bloco[i]) != getValue(bloco[i-1]) + 1 ||
-            getSuite(bloco[i]) != getSuite(bloco[i-1])) {
+            strcmp(getSuite(bloco[i]), getSuite(bloco[i-1])) != 0) {
             return 0;
         }
     }

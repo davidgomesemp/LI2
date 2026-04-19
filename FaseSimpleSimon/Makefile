@@ -3,8 +3,8 @@ CFLAGS = -Wall -Wextra -pedantic -O2
 
 OBJ = main.o ssimon.o displaySS.o stack.o card.o
 
-simon: $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o simon
+ssimon: $(OBJ)
+	$(CC) $(CFLAGS) $(OBJ) -o ssimon
 
 main.o: main.c ssimon.h displaySS.h
 	$(CC) $(CFLAGS) -c main.c
@@ -22,4 +22,4 @@ card.o: card.c card.h
 	$(CC) $(CFLAGS) -c card.c
 
 clean:
-	rm -f *.o simon
+	rm -f *.o ssimon
