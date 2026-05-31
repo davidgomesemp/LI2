@@ -352,41 +352,70 @@ int verificarVitoria(const EstadoJogo *estado, const Paciencia *p) {
 }
 
 // -----------------------------------------------------------------------------
-// Função: testarRegraDica
-// Objetivo: Testa destinos válidos usando validarRegras SEM alterar o jogo.
+// Função: avaliarQuantidadesDica
+// Objetivo: Testa as quantidades possíveis a mover para um destino válido.
 // -----------------------------------------------------------------------------
-static int testarRegraDica(const EstadoJogo *est, const Paciencia *p, int r, int o, int *dest, int *q) {
-    Stack *orig = (Stack *)&est->pilhas[o];
-    if (isEmpty(orig) || strcmp(p->inits[o].tipo, p->movs[r].origem) != 0) return 0;
-
-    for (int d = 0; d < est->nPilhas; d++) {
-        if (o == d || strcmp(p->inits[d].tipo, p->movs[r].destino) != 0) continue;
-        
-        Stack *dst = (Stack *)&est->pilhas[d];
-        
-        int max_qtd = 1;
-        if (strcmp(p->inits[o].tipo, "STOCK") != 0) max_qtd = size(orig);
-        
-        for (int qtd = max_qtd; qtd >= 1; qtd--) {
-            if (validarRegras(orig, dst, qtd, p->movs[r].flags)) {
-                *dest = d; 
-                *q = qtd;
-                return 1;
-            }
+static int avaliarQuantidadesDica(Stack *orig, Stack *dst, const char *flags, int max_qtd, int d, int *dest, int *q) {
+    for (int qtd = max_qtd; qtd >= 1; qtd--) {
+        if (validarRegras(orig, dst, qtd, flags)) {
+            *dest = d;
+            *q = qtd;
+            return 1;
         }
     }
     return 0;
 }
 
 // -----------------------------------------------------------------------------
-// FASE 1: Tabuleiro (Prioridade)
+// Função: testarDestinoValido
+// Objetivo: Isola a verificação do destino sem usar 'continue'.
+// -----------------------------------------------------------------------------
+static int testarDestinoValido(const EstadoJogo *est, const Paciencia *p, int r, int o, Stack *orig, int d, int *dest, int *q) {
+    // Condição positiva em vez de usar 'continue'
+    if (o != d && strcmp(p->inits[d].tipo, p->movs[r].destino) == 0) {
+        Stack *dst = (Stack *)&est->pilhas[d];
+        int max_qtd = 1;
+
+        if (strcmp(p->inits[o].tipo, "STOCK") != 0) {
+            max_qtd = size(orig);
+        }
+
+        return avaliarQuantidadesDica(orig, dst, p->movs[r].flags, max_qtd, d, dest, q);
+    }
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+// Função: testarRegraDica
+// Objetivo: Testa destinos válidos usando validarRegras SEM alterar o jogo.
+// -----------------------------------------------------------------------------
+static int testarRegraDica(const EstadoJogo *est, const Paciencia *p, int r, int o, int *dest, int *q) {
+    Stack *orig = (Stack *)&est->pilhas[o];
+
+    if (isEmpty(orig) || strcmp(p->inits[o].tipo, p->movs[r].origem) != 0) {
+        return 0;
+    }
+
+    for (int d = 0; d < est->nPilhas; d++) {
+        if (testarDestinoValido(est, p, r, o, orig, d, dest, q)) {
+            return 1; // Encontrou dica válida
+        }
+    }
+    return 0;
+}
+
+// -----------------------------------------------------------------------------
+// Função: procurarNoTabuleiro
+// Objetivo: Varre todas as pilhas do tabuleiro (ignorando o STOCK) à procura
+//           da primeira jogada legal possível. Dá prioridade a movimentos
+//           nas pilhas principais.
 // -----------------------------------------------------------------------------
 static int procurarNoTabuleiro(const EstadoJogo *est, const Paciencia *p, int *orig, int *dest, int *qtd) {
     for (int r = 0; r < p->nMovs; r++) {
         for (int o = 0; o < est->nPilhas; o++) {
             if (strcmp(p->inits[o].tipo, "STOCK") != 0) {
                 if (testarRegraDica(est, p, r, o, dest, qtd)) {
-                    *orig = o; 
+                    *orig = o;
                     return 1;
                 }
             }
@@ -396,14 +425,17 @@ static int procurarNoTabuleiro(const EstadoJogo *est, const Paciencia *p, int *o
 }
 
 // -----------------------------------------------------------------------------
-// FASE 2: Stock (Último Recurso)
+// Função: procurarNoStock
+// Objetivo: Procura uma jogada válida partindo exclusivamente da pilha de
+//           STOCK. Serve como último recurso caso o tabuleiro principal
+//           esteja bloqueado.
 // -----------------------------------------------------------------------------
 static int procurarNoStock(const EstadoJogo *est, const Paciencia *p, int *orig, int *dest, int *qtd) {
     for (int r = 0; r < p->nMovs; r++) {
         for (int o = 0; o < est->nPilhas; o++) {
             if (strcmp(p->inits[o].tipo, "STOCK") == 0) {
                 if (testarRegraDica(est, p, r, o, dest, qtd)) {
-                    *orig = o; 
+                    *orig = o;
                     return 1;
                 }
             }
@@ -414,10 +446,12 @@ static int procurarNoStock(const EstadoJogo *est, const Paciencia *p, int *orig,
 
 // -----------------------------------------------------------------------------
 // Função: procurarDica
+// Objetivo: Orquestra a procura de uma jogada legal, testando primeiro o
+//           tabuleiro (Fase 1) e, se não encontrar nada, recorrendo ao
+//           STOCK (Fase 2).
 // -----------------------------------------------------------------------------
 int procurarDica(const EstadoJogo *estado, const Paciencia *p, int *o, int *d, int *qtd) {
     if (procurarNoTabuleiro(estado, p, o, d, qtd)) return 1;
     if (procurarNoStock(estado, p, o, d, qtd)) return 1;
-    return 0; 
+    return 0;
 }
-
