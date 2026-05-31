@@ -94,7 +94,6 @@ static int parseBaralhos(Paciencia *p, const char *linha) {
 // Parâmetros: p - Estrutura Paciencia; linha - Linha lida.
 // Retorno: Nenhum.
 // -----------------------------------------------------------------------------
-static void parseTipo(Paciencia *p, const char *linha)
 static int parseTipo(Paciencia *p, const char *linha) {
     TipoPilha *tipo;
 
@@ -242,9 +241,9 @@ static void lerLinhasFicheiro(FILE *f, Paciencia *p) {
     while (fgets(linha, sizeof(linha), f)) {
         removerComentario(linha);
         char *limpa = saltarEspacos(linha);
-        if (linhaVazia(limpa)) continue;
-        
-        interpretarLinha(p, limpa);
+        if (!linhaVazia(limpa)){ 
+		interpretarLinha(p,limpa);
+	}
     }
 }
 

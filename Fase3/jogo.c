@@ -1,42 +1,46 @@
 #include "jogo.h"
+#include "card.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+
 // -----------------------------------------------------------------------------
 // Função: distribuirCartasPilha
-// Objetivo: Coloca as primeiras cartas do baralho numa pilha durante o setup.
-// Parâmetros: pilha - Destino; deck - Baralho; idxBaralho - Índice; qtd - Quantidade.
-// Retorno: Nenhum.
+// Objetivo: Retira um número específico de cartas do topo do baralho e
+//           coloca-as numa pilha do tabuleiro durante o início do jogo.
 // -----------------------------------------------------------------------------
-static void distribuirCartasPilha(Stack *pilha, int *deck, int *idxDeck, int qtd) {
+static void distribuirCartasPilha(Stack *pilha, int *deck, int *idxBaralho, int qtd) {
     for (int i = 0; i < qtd; i++) {
-        meter(pilha, getCard(deck[(*idxDeck)++]));
+        Carta c = getCard(deck[*idxBaralho]);
+        meter(pilha, c);
+        (*idxBaralho)++;
     }
 }
 
 // -----------------------------------------------------------------------------
 // Função: inicializarEstadoJogo
-// Objetivo: Cria o tabuleiro inicial de acordo com as regras de INIT da paciência.
-// Parâmetros: e - Estado a preencher; p - Regras lidas.
-// Retorno: Nenhum.
+// Objetivo: Prepara um novo jogo. Cria o baralho com 52 cartas, baralha-o, e
+//           distribui as cartas pelas pilhas consoante as regras do ficheiro DSL.
 // -----------------------------------------------------------------------------
-void inicializarEstadoJogo(EstadoJogo *estado, Paciencia *p) {
-    int totalCartas = p->baralhos * 52;
-    int deck[MAX_CARTAS_STACK];
-    int idxDeck = 0;
-    for (int i = 0; i < totalCartas; i++) deck[i] = i % 52;
-    shuffleDeck(deck, totalCartas);
-    estado->nPilhas = p->nInits;
-    for (int i = 0; i < p->nInits; i++) {
-        initStack(&estado->pilhas[i]);
-        distribuirCartasPilha(&estado->pilhas[i], deck, &idxDeck, p->inits[i].ncartas);
+void inicializarEstadoJogo(EstadoJogo *e, const Paciencia *p) {
+    e->nPilhas = p->nInits;
+    int deck[52];
+
+    for (int i = 0; i < 52; i++) deck[i] = i;
+    shuffleDeck(deck, 52);
+
+    int idxBaralho = 0;
+    for (int i = 0; i < e->nPilhas; i++) {
+        initStack(&e->pilhas[i]);
+        int qtd = p->inits[i].ncartas;
+        distribuirCartasPilha(&e->pilhas[i], deck, &idxBaralho, qtd);
     }
 }
 
 // -----------------------------------------------------------------------------
 // Função: initHistorico
-// Objetivo: Prepara a estrutura do Histórico para iniciar gravação do Undo.
-// Parâmetros: h - Histórico a limpar.
-// Retorno: Nenhum.
+// Objetivo: Coloca o contador de jogadas guardadas a zero.
 // -----------------------------------------------------------------------------
 void initHistorico(Historico *h) {
     h->total = 0;
@@ -44,100 +48,196 @@ void initHistorico(Historico *h) {
 
 // -----------------------------------------------------------------------------
 // Função: guardarEstado
-// Objetivo: Copia o estado do tabuleiro para o histórico (Snapshot).
-// Parâmetros: h - Histórico; e - Estado atual a gravar.
-// Retorno: Nenhum.
+// Objetivo: Tira uma "fotografia" do tabuleiro atual e guarda no histórico
+//           para permitir o Undo (voltar atrás). Respeita o limite máximo de jogadas.
 // -----------------------------------------------------------------------------
-void guardarEstado(Historico *h, const EstadoJogo *estado) {
+void guardarEstado(Historico *h, const EstadoJogo *e) {
     if (h->total < MAX_HISTORICO) {
-        h->estados[h->total++] = *estado;
+        h->estados[h->total] = *e;
+        h->total++;
     }
 }
 
 // -----------------------------------------------------------------------------
 // Função: desfazerJogada
-// Objetivo: Restaura o tabuleiro para a versão guardada anteriormente no histórico.
-// Parâmetros: h - Histórico; e - Estado do jogo a reescrever.
-// Retorno: 1 se desfez com sucesso, 0 se não havia jogadas.
+// Objetivo: Recupera a última "fotografia" guardada do tabuleiro, substituindo
+//           o estado atual. Diminui o contador do histórico.
 // -----------------------------------------------------------------------------
-int desfazerJogada(Historico *h, EstadoJogo *estado) {
+int desfazerJogada(Historico *h, EstadoJogo *e) {
     if (h->total > 0) {
-        *estado = h->estados[--h->total];
+        h->total--;
+        *e = h->estados[h->total];
         return 1;
     }
     return 0;
 }
 
 // -----------------------------------------------------------------------------
-// Função: salvarPilha
-// Objetivo: Escreve no ficheiro de Save os dados de uma única pilha.
-// Parâmetros: f - Ficheiro aberto; pilha - Pilha a gravar.
-// Retorno: Nenhum.
+// Função: cartaParaString
+// Objetivo: Converte uma estrutura Carta numa string compacta (ex: "K♥")
+//           para que possa ser escrita num ficheiro de texto durante o Save.
 // -----------------------------------------------------------------------------
-static void salvarPilha(FILE *f, const Stack *s) {
-    fprintf(f, "%d\n", s->topo);
-    for (int j = 0; j <= s->topo; j++) {
-        fprintf(f, "%d %s\n", s->cartas[j].value, s->cartas[j].naipe);
+static void cartaParaString(Carta c, char *str) {
+    const char* vals[] = {"A","2","3","4","5","6","7","8","9","T","J","Q","K"};
+    sprintf(str, "%s%s", vals[c.value], c.naipe);
+}
+
+// -----------------------------------------------------------------------------
+// Função: charParaValor
+// Objetivo: Traduz o primeiro caráter de uma string de carta para o seu valor
+//           matemático interno (0 a 12).
+// -----------------------------------------------------------------------------
+static int charParaValor(const char *str) {
+    if (str[0] == '1' && str[1] == '0') return 9;
+    char v = toupper(str[0]);
+    const char *figuras = "A23456789TJQK";
+    char *ptr = strchr(figuras, v);
+    if (ptr != NULL) {
+        return (int)(ptr - figuras);
+    }
+    return v - '1'; // Prevenção de falhas
+}
+
+// -----------------------------------------------------------------------------
+// Função: extrairNaipeLetra
+// Objetivo: Lida apenas com os caracteres alfabéticos.
+// -----------------------------------------------------------------------------
+static const char* extrairNaipeLetra(const char *str) {
+    if (strpbrk(str, "sSeE")) return "♠";
+    if (strpbrk(str, "hH")) return "♥";
+    if (strpbrk(str, "dDoO")) return "♦";
+    return "♣";
+}
+
+// -----------------------------------------------------------------------------
+// Função: extrairNaipe
+// Objetivo: Descobre o naipe lendo a string.
+// -----------------------------------------------------------------------------
+static const char* extrairNaipe(const char *str) {
+    if (strstr(str, "♠")) return "♠";
+    if (strstr(str, "♥")) return "♥";
+    if (strstr(str, "♦")) return "♦";
+    if (strstr(str, "♣")) return "♣";
+    return extrairNaipeLetra(str);
+}
+
+// -----------------------------------------------------------------------------
+// Função: stringParaCarta
+// Objetivo: Processo inverso da gravação. Transforma uma palavra do ficheiro
+//           de texto (ex: "10H") numa estrutura Carta real do jogo.
+// -----------------------------------------------------------------------------
+static void stringParaCarta(const char *str, Carta *c) {
+    const char* vals[] = {"A","2","3","4","5","6","7","8","9","T","J","Q","K"};
+    c->value = charParaValor(str);
+    c->naipe = (char *)extrairNaipe(str);
+    c->prnt = malloc(16 * sizeof(char));
+    if (c->prnt) {
+        sprintf(c->prnt, "%s%s", vals[c->value], c->naipe);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Função: obterNomeBase
+// Objetivo: Limpa o caminho completo de um ficheiro (ex: "paciencias/golf.txt")
+//           e devolve apenas o nome do ficheiro ("golf.txt") para o cabeçalho.
+// -----------------------------------------------------------------------------
+static const char* obterNomeBase(const char* caminho) {
+    const char* barra = strrchr(caminho, '/');
+    return barra ? barra + 1 : caminho;
+}
+
+// -----------------------------------------------------------------------------
+// Função: salvarPilha
+// Objetivo: Varre uma pilha e escreve todas as suas cartas numa linha de texto.
+// -----------------------------------------------------------------------------
+static void salvarPilha(FILE *f, const Stack *pilha) {
+    for (int i = 0; i < size((Stack *)pilha); i++) {
+        char s[16];
+        cartaParaString(pilha->cartas[i], s);
+        fprintf(f, "%s%s", s, (i == size((Stack *)pilha) - 1) ? "" : " ");
     }
 }
 
 // -----------------------------------------------------------------------------
 // Função: salvarJogo
-// Objetivo: Grava todas as pilhas e o cabeçalho num ficheiro (Save).
-// Parâmetros: e - Estado atual; ficheiro - Caminho do save.
-// Retorno: 1 sucesso, 0 erro.
+// Objetivo: Orquestra o processo de criação de um ficheiro '.save'. Escreve o
+//           nome do jogo e despeja o conteúdo das pilhas linha a linha.
 // -----------------------------------------------------------------------------
-int salvarJogo(const EstadoJogo *estado, const char *ficheiro) {
+int salvarJogo(const EstadoJogo *e, const char *caminhoPac, const char *ficheiro) {
     FILE *f = fopen(ficheiro, "w");
     if (!f) return 0;
-    fprintf(f, "%d\n", estado->nPilhas);
-    for (int i = 0; i < estado->nPilhas; i++) salvarPilha(f, &estado->pilhas[i]);
+
+    fprintf(f, "%s\n", obterNomeBase(caminhoPac));
+
+    for(int i = 0; i < e->nPilhas; i++) {
+        if (!isEmpty((Stack*)&e->pilhas[i])) {
+            salvarPilha(f, &e->pilhas[i]);
+        }
+        fprintf(f, "\n");
+    }
+
     fclose(f);
     return 1;
 }
 
 // -----------------------------------------------------------------------------
-// Função: suitStrToIndex
-// Objetivo: Converte o símbolo string de um naipe lido no load para índice.
-// Parâmetros: naipe - String com o símbolo.
-// Retorno: Índice do naipe (0 a 3).
+// Função: processarLinhaCartas
+// Objetivo: Divide uma linha inteira do ficheiro de texto em palavras separadas
+//           por espaços, criando cartas e empurrando-as para a respetiva pilha.
 // -----------------------------------------------------------------------------
-static int suitStrToIndex(const char *naipe) {
-    if (strcmp(naipe, "♥") == 0) return 1;
-    if (strcmp(naipe, "♦") == 0) return 2;
-    if (strcmp(naipe, "♣") == 0) return 3;
-    return 0;
-}
-
-// -----------------------------------------------------------------------------
-// Função: carregarPilha
-// Objetivo: Lê cartas de um ficheiro e reconstrói as memórias de uma pilha.
-// Parâmetros: f - Ficheiro de leitura; pilha - Pilha destino.
-// Retorno: 1 sucesso, 0 erro no ficheiro.
-// -----------------------------------------------------------------------------
-static void carregarPilha(FILE *f, Stack *s) {
-    int topo, val;
-    char naipe[10];
-    fscanf(f, "%d", &topo);
-    initStack(s);
-    for (int j = 0; j <= topo; j++) {
-        fscanf(f, "%d %s", &val, naipe);
-        int idx = suitStrToIndex(naipe) * 13 + val;
-        meter(s, getCard(idx));
+static void processarLinhaCartas(Stack *pilha, char *linha) {
+    if (strlen(linha) == 0) return;
+    char *token = strtok(linha, " ");
+    while (token) {
+        Carta c;
+        stringParaCarta(token, &c);
+        meter(pilha, c);
+        token = strtok(NULL, " ");
     }
 }
 
 // -----------------------------------------------------------------------------
-// Função: carregarJogo
-// Objetivo: Reconstrói o tabuleiro completo a partir de um ficheiro de Load.
-// Parâmetros: e - Estado a preencher; ficheiro - Ficheiro de Save.
-// Retorno: 1 sucesso, 0 não encontrado.
+// Função: lerCabecalhoSave
+// Objetivo: Extrai a primeira linha do ficheiro .save para saber qual foi o
+//           jogo original que gerou aquela gravação.
 // -----------------------------------------------------------------------------
-int carregarJogo(EstadoJogo *estado, const char *ficheiro) {
+static int lerCabecalhoSave(FILE *f, char *nomePacLido) {
+    char linha[512];
+    if (!fgets(linha, sizeof(linha), f)) return 0;
+    linha[strcspn(linha, "\r\n")] = 0;
+    strcpy(nomePacLido, linha);
+    return 1;
+}
+
+// -----------------------------------------------------------------------------
+// Função: carregarLinhaPilha
+// Objetivo: Auxiliar para inicializar a pilha e processar as cartas da linha.
+// -----------------------------------------------------------------------------
+static void carregarLinhaPilha(EstadoJogo *e, int i, char *linha) {
+    linha[strcspn(linha, "\r\n")] = 0;
+    initStack(&e->pilhas[i]);
+    processarLinhaCartas(&e->pilhas[i], linha);
+}
+
+// -----------------------------------------------------------------------------
+// Função: carregarJogo
+// Objetivo: Orquestra o processo de 'Load'. Abre o ficheiro, lê o cabeçalho e
+//           reconstrói as pilhas linha a linha injetando-as no estado do jogo.
+// -----------------------------------------------------------------------------
+int carregarJogo(EstadoJogo *e, char *nomePacLido, const char *ficheiro) {
     FILE *f = fopen(ficheiro, "r");
+    int i = 0;
+    char linha[512];
     if (!f) return 0;
-    fscanf(f, "%d", &estado->nPilhas);
-    for (int i = 0; i < estado->nPilhas; i++) carregarPilha(f, &estado->pilhas[i]);
+    if (!lerCabecalhoSave(f, nomePacLido)) {
+        fclose(f);
+        return 0;
+    }
+    while (fgets(linha, sizeof(linha), f)) {
+        carregarLinhaPilha(e, i, linha);
+        i++;
+    }
+    e->nPilhas = i;
     fclose(f);
     return 1;
 }

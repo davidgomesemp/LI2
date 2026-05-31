@@ -5,8 +5,6 @@
 // -----------------------------------------------------------------------------
 // Função: getCard
 // Objetivo: Cria uma estrutura Carta calculando valor e naipe a partir do ID.
-// Parâmetros: id - ID numérico da carta (0 a 51).
-// Retorno: Estrutura Carta preenchida.
 // -----------------------------------------------------------------------------
 Carta getCard(int c) {
     char *suits[] = {"♠", "♥", "♦", "♣"};
@@ -32,8 +30,6 @@ Carta getCard(int c) {
 // -----------------------------------------------------------------------------
 // Função: getValue
 // Objetivo: Extrai o valor facial (0 a 12) da carta.
-// Parâmetros: id - ID numérico da carta.
-// Retorno: Valor facial da carta.
 // -----------------------------------------------------------------------------
 int getValue(Carta c) {
     return c.value;
@@ -42,8 +38,6 @@ int getValue(Carta c) {
 // -----------------------------------------------------------------------------
 // Função: getSuite
 // Objetivo: Extrai o naipe (0 a 3) da carta.
-// Parâmetros: id - ID numérico da carta.
-// Retorno: Valor do naipe correspondente.
 // -----------------------------------------------------------------------------
 char *getSuite(Carta c) {
     return c.naipe;
@@ -52,8 +46,6 @@ char *getSuite(Carta c) {
 // -----------------------------------------------------------------------------
 // Função: shuffleDeck
 // Objetivo: Baralha aleatoriamente um vetor de IDs de cartas.
-// Parâmetros: deck - Array de IDs; size - Tamanho do baralho.
-// Retorno: Nenhum.
 // -----------------------------------------------------------------------------
 void shuffleDeck(int *deck, int size) {
     for (int i = size - 1; i > 0; i--) {
@@ -68,8 +60,6 @@ void shuffleDeck(int *deck, int size) {
 // -----------------------------------------------------------------------------
 // Função: podeJogar
 // Objetivo: Confirma se os parâmetros internos da carta são legais.
-// Parâmetros: c - Carta a verificar.
-// Retorno: 1 válida, 0 inválida.
 // -----------------------------------------------------------------------------
 int podeJogar(Carta a, Carta b) {
     return abs(a.value - b.value) == 1;

@@ -6,8 +6,6 @@
 // -----------------------------------------------------------------------------
 // Função: initStack
 // Objetivo: Inicializa uma pilha nova, colocando o seu topo a -1.
-// Parâmetros: s - Apontador para a pilha.
-// Retorno: Nenhum.
 // -----------------------------------------------------------------------------
 void initStack(Stack *s) {
     s->topo = -1;
@@ -16,8 +14,6 @@ void initStack(Stack *s) {
 // -----------------------------------------------------------------------------
 // Função: isEmpty
 // Objetivo: Verifica se a pilha está vazia.
-// Parâmetros: s - Apontador para a pilha.
-// Retorno: 1 se vazia, 0 se tiver cartas.
 // -----------------------------------------------------------------------------
 int isEmpty(Stack *s) {
     return s->topo == -1;
@@ -26,8 +22,6 @@ int isEmpty(Stack *s) {
 // -----------------------------------------------------------------------------
 // Função: meter
 // Objetivo: Insere (Push) uma carta no topo da pilha.
-// Parâmetros: s - Pilha; c - Carta a inserir.
-// Retorno: Nenhum.
 // -----------------------------------------------------------------------------
 void meter(Stack *s, Carta c) {
     if (s->topo >= MAX_CARTAS_STACK - 1) {
@@ -42,8 +36,6 @@ void meter(Stack *s, Carta c) {
 // -----------------------------------------------------------------------------
 // Função: tirar
 // Objetivo: Remove (Pop) e devolve a carta do topo.
-// Parâmetros: s - Pilha de onde retirar.
-// Retorno: A carta removida.
 // -----------------------------------------------------------------------------
 Carta tirar(Stack *s) {
     if (isEmpty(s)) {
@@ -58,8 +50,6 @@ Carta tirar(Stack *s) {
 // -----------------------------------------------------------------------------
 // Função: verTopo
 // Objetivo: Lê a carta do topo da pilha sem a remover (Peek).
-// Parâmetros: s - Pilha a verificar.
-// Retorno: A carta do topo.
 // -----------------------------------------------------------------------------
 Carta verTopo(Stack *s) {
     if (isEmpty(s)) {
@@ -72,8 +62,6 @@ Carta verTopo(Stack *s) {
 // -----------------------------------------------------------------------------
 // Função: size
 // Objetivo: Calcula a quantidade de cartas atualmente na pilha.
-// Parâmetros: s - Pilha a contabilizar.
-// Retorno: O número de cartas (topo + 1).
 // -----------------------------------------------------------------------------
 int size(Stack *s) {
     return s->topo + 1;

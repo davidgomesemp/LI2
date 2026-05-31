@@ -1,51 +1,142 @@
 #include "interface.h"
 #include <stdio.h>
+#include <string.h>
+
+#define F_BRANCO "\x1b[47m"
+#define T_VERMELHO "\x1b[31m"
+#define T_PRETO "\x1b[30m"
+#define RESET "\x1b[0m"
 
 // -----------------------------------------------------------------------------
-// Função: mostrarUmaPilha
-// Objetivo: Imprime uma pilha inteira no ecrã com índice e o seu tipo.
-// Parâmetros: id - Índice da linha; tipo - Tipo da pilha; pilha - Cartas.
-// Retorno: Nenhum.
+// Função: imprimirCarta
+// Objetivo: Imprime uma única carta com as cores ANSI corretas.
 // -----------------------------------------------------------------------------
-static void mostrarUmaPilha(const EstadoJogo *estado, const Paciencia *p, int i) {
-    Stack *s = (Stack *)&estado->pilhas[i];
-    printf("%2d [%-8s]: ", i, p->inits[i].tipo);
-    if (isEmpty(s)) {
-        printf("(vazia)\n");
-        return;
+static void imprimirCarta(Carta c) {
+    int isRed = (strcmp(c.naipe, "♥") == 0 || strcmp(c.naipe, "♦") == 0);
+    const char* cor = isRed ? T_VERMELHO : T_PRETO;
+    const char* vals[] = {"A","2","3","4","5","6","7","8","9","10","J","Q","K"};
+
+    printf("%s%s[ %2s%s ]%s", F_BRANCO, cor, vals[c.value], c.naipe, RESET);
+}
+
+// -----------------------------------------------------------------------------
+// Função: desenharPilhaHorizontal
+// Objetivo: Imprime todas as cartas de uma pilha na mesma linha (Stock/Fund).
+// -----------------------------------------------------------------------------
+static void desenharPilhaHorizontal(const Stack *s) {
+    if (isEmpty((Stack *)s)) {
+        printf("[     ]\n");
+    } else {
+        for (int j = 0; j <= s->topo; j++) {
+            imprimirCarta(s->cartas[j]);
+            printf(" ");
+        }
+        printf("\n");
     }
-    for (int j = 0; j <= s->topo; j++) {
-        printf("%s ", s->cartas[j].prnt);
+}
+
+// -----------------------------------------------------------------------------
+// Função: desenharZonaSuperior
+// Objetivo: Imprime as fundações, stock e descarte, alinhados à esquerda.
+// Retorno: 1 se imprimiu alguma coisa, 0 se o jogo não tem zona superior.
+// -----------------------------------------------------------------------------
+static int desenharZonaSuperior(const EstadoJogo *est, const Paciencia *p) {
+    int temConteudo = 0;
+    for (int i = 0; i < est->nPilhas; i++) {
+        if (strcmp(p->inits[i].tipo, "TAB") != 0) {
+            temConteudo = 1;
+            char buffer[64];
+            snprintf(buffer, sizeof(buffer), "%d[%s]", i, p->inits[i].tipo);
+            printf("%-10s: ", buffer);
+            desenharPilhaHorizontal(&est->pilhas[i]);
+        }
+    }
+    return temConteudo;
+}
+
+// -----------------------------------------------------------------------------
+// Função: obterMaxAltura
+// Objetivo: Descobre qual é a coluna TAB mais alta para saber quantas
+//           linhas a cascata precisa de imprimir.
+// -----------------------------------------------------------------------------
+static int obterMaxAltura(const EstadoJogo *est, const Paciencia *p) {
+    int max = 0;
+    for (int i = 0; i < est->nPilhas; i++) {
+        if (strcmp(p->inits[i].tipo, "TAB") == 0) {
+            int alturaAtual = size((Stack *)&est->pilhas[i]);
+            if (alturaAtual > max) max = alturaAtual;
+        }
+    }
+    return max;
+}
+
+// -----------------------------------------------------------------------------
+// Função: desenharCabecalhoTab
+// Objetivo: Imprime os nomes das colunas TAB perfeitamente espaçados a 9.
+// -----------------------------------------------------------------------------
+static void desenharCabecalhoTab(const EstadoJogo *est, const Paciencia *p) {
+    for (int i = 0; i < est->nPilhas; i++) {
+        if (strcmp(p->inits[i].tipo, "TAB") == 0) {
+            char buffer[64];
+            snprintf(buffer, sizeof(buffer), "%d[%s]", i, p->inits[i].tipo);
+            printf("%-7s  ", buffer);
+        }
+    }
+    printf("\n");
+}
+
+// -----------------------------------------------------------------------------
+// Função: desenharLinhaCascata
+// Objetivo: Imprime apenas um "andar" de cartas ao longo das colunas TAB.
+// -----------------------------------------------------------------------------
+static void desenharLinhaCascata(const EstadoJogo *est, const Paciencia *p, int nivel) {
+    for (int i = 0; i < est->nPilhas; i++) {
+        if (strcmp(p->inits[i].tipo, "TAB") == 0) {
+            Stack *s = (Stack *)&est->pilhas[i];
+            if (nivel < size(s)) {
+                imprimirCarta(s->cartas[nivel]);
+                printf("  ");
+            } else {
+                printf("         "); // Espaço invisível de 9 de largura
+            }
+        }
     }
     printf("\n");
 }
 
 // -----------------------------------------------------------------------------
 // Função: mostrarTabuleiro
-// Objetivo: Itera pelas pilhas do jogo e desenha a mesa de paciência completa.
-// Parâmetros: e - Estado atual do jogo; p - Regras (para nomes e tipos).
-// Retorno: Nenhum.
+// Objetivo: Função principal da interface. Complexidade reduzida ao orquestrar
+//           as funções de impressão modulares.
 // -----------------------------------------------------------------------------
 void mostrarTabuleiro(const EstadoJogo *estado, const Paciencia *p) {
-    printf("\n==== %s ====\n", p->nomeJogo);
-    for (int i = 0; i < estado->nPilhas; i++) {
-        mostrarUmaPilha(estado, p, i);
+    printf("\n==== %s ==================================================\n\n", p->nomeJogo);
+
+    if (desenharZonaSuperior(estado, p)) {
+        printf("\n-----------------------------------------------------------------\n\n");
     }
-    printf("=====================\n");
+
+    desenharCabecalhoTab(estado, p);
+
+    int max_altura = obterMaxAltura(estado, p);
+    for (int nivel = 0; nivel < max_altura; nivel++) {
+        desenharLinhaCascata(estado, p, nivel);
+    }
+
+    printf("\n=================================================================\n");
 }
 
 // -----------------------------------------------------------------------------
 // Função: lerComando
-// Objetivo: Aguarda input do teclado e divide a string num comando interpretável.
-// Parâmetros: Nenhum.
-// Retorno: Estrutura Comando preenchida.
+// Objetivo: Aguarda o input do jogador e processa a string na estrutura Comando.
 // -----------------------------------------------------------------------------
 Comando lerComando(void) {
-    Comando cmd = {'i', 0, 0, 0, ""};
+    Comando cmd = {'q', 0, 0, 0, ""};
     char linha[128];
-    printf("Opcoes: [m]over O D Q | [s]ave arq | [l]oad arq | [u]ndo | [q]uit\n");
+    printf("Opcoes: [m]over O D Q | [d]ica | [s]ave arq | [l]oad arq | [u]ndo | [q]uit\n");
     printf("Comando: ");
     if (!fgets(linha, sizeof(linha), stdin)) return cmd;
+
     sscanf(linha, " %c", &cmd.tipo);
     if (cmd.tipo == 'm') {
         sscanf(linha, " m %d %d %d", &cmd.orig, &cmd.dest, &cmd.qtd);

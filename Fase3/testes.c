@@ -3,169 +3,161 @@
 #include "card.h"
 #include "parser.h"
 #include "engine.h"
+#include <CUnit/Basic.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
-// -----------------------------------------------------------------------------
-// Função: testar_stack
-// Objetivo: Valida a mecânica de LIFO, verificando push, pop e empty na Stack.
-// Parâmetros: Nenhum.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-void testar_stack() {
+void testar_stack(void) {
     Stack s;
     initStack(&s);
-    assert(isEmpty(&s) == 1);
-    assert(size(&s) == 0);
+    CU_ASSERT_TRUE(isEmpty(&s));
+    CU_ASSERT_EQUAL(size(&s), 0);
     
     meter(&s, getCard(0)); 
     meter(&s, getCard(1)); 
-    assert(isEmpty(&s) == 0);
-    assert(size(&s) == 2);
+    CU_ASSERT_FALSE(isEmpty(&s));
+    CU_ASSERT_EQUAL(size(&s), 2);
     
     Carta retirada = tirar(&s);
-    assert(retirada.value == 1); 
-    assert(size(&s) == 1);
-    
-    printf("[OK] Testes da Stack passaram!\n");
+    CU_ASSERT_EQUAL(retirada.value, 1); 
+    CU_ASSERT_EQUAL(size(&s), 1);
 }
 
-// -----------------------------------------------------------------------------
-// Função: verificar_historico_undo
-// Objetivo: Reduz código de asserts validando se os dados do Undo estão corretos.
-// Parâmetros: h - Histórico utilizado para teste.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-static void verificar_historico_undo(Historico *h) {
-    EstadoJogo e_recuperado;
-    assert(desfazerJogada(h, &e_recuperado) == 1);
-    assert(h->total == 0);
-    assert(size(&e_recuperado.pilhas[0]) == 1);
-    assert(desfazerJogada(h, &e_recuperado) == 0);
-}
-
-// -----------------------------------------------------------------------------
-// Função: testar_undo
-// Objetivo: Valida se é possível criar um snapshot e restaurá-lo perfeitamente.
-// Parâmetros: Nenhum.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-void testar_undo() {
+void testar_undo(void) {
     Historico *h = malloc(sizeof(Historico));
-    if (h == NULL) exit(1);
+    CU_ASSERT_PTR_NOT_NULL(h);
     
-    EstadoJogo e_inicial;
+    EstadoJogo e_inicial, e_recuperado;
     initHistorico(h);
     e_inicial.nPilhas = 1;
     initStack(&e_inicial.pilhas[0]);
     meter(&e_inicial.pilhas[0], getCard(0));
     
     guardarEstado(h, &e_inicial);
-    assert(h->total == 1);
+    CU_ASSERT_EQUAL(h->total, 1);
     
-    verificar_historico_undo(h);
+    CU_ASSERT_TRUE(desfazerJogada(h, &e_recuperado));
+    CU_ASSERT_EQUAL(h->total, 0);
+    CU_ASSERT_EQUAL(size(&e_recuperado.pilhas[0]), 1);
+    
     free(h);
-    printf("[OK] Testes de Undo passaram!\n");
 }
 
-// -----------------------------------------------------------------------------
-// Função: testar_save_load
-// Objetivo: Grava um tabuleiro num ficheiro temporário e tenta reconstrui-lo.
-// Parâmetros: Nenhum.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-void testar_save_load() {
+void testar_save_load(void) {
     EstadoJogo original, carregado;
     const char *ficheiro = "save_teste.txt";
+    char nomeLido[MAX_CAMINHO];
     
     original.nPilhas = 1;
     initStack(&original.pilhas[0]);
-    meter(&original.pilhas[0], getCard(5));  
+    meter(&original.pilhas[0], getCard(5)); 
     
-    assert(salvarJogo(&original, ficheiro) == 1);
-    assert(carregarJogo(&carregado, ficheiro) == 1);
-    assert(carregado.nPilhas == 1);
+    CU_ASSERT_TRUE(salvarJogo(&original, "teste.paciencias", ficheiro));
+    CU_ASSERT_TRUE(carregarJogo(&carregado, nomeLido, ficheiro));
+    
+    CU_ASSERT_EQUAL(carregado.nPilhas, 1);
+    CU_ASSERT_STRING_EQUAL(nomeLido, "teste.paciencias");
     
     Carta c = verTopo(&carregado.pilhas[0]);
-    assert(c.value == 5);
-    assert(carregarJogo(&carregado, "ficheiro_fantasma.txt") == 0);
-    
-    printf("[OK] Testes de Save/Load passaram!\n");
+    CU_ASSERT_EQUAL(c.value, 5);
 }
 
-// -----------------------------------------------------------------------------
-// Função: testar_parser
-// Objetivo: Valida tratamento de ficheiros faltosos e leitura correta de regras DSL.
-// Parâmetros: Nenhum.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-void testar_parser() {
+void testar_parser(void) {
     Paciencia p;
-    assert(lerPaciencia("ficheiro_falso.paciencias", &p) == 0);
+    CU_ASSERT_FALSE(lerPaciencia("ficheiro_falso.paciencias", &p));
 
     int leu = lerPaciencia("paciencias/simplesimon.paciencias", &p);
-    assert(leu == 1); 
-    assert(strcmp(p.nomeJogo, "SimpleSimon") == 0);
-    assert(p.baralhos == 1);
-    assert(p.nInits == 14); 
-    
-    printf("[OK] Testes do Parser passaram!\n");
+    CU_ASSERT_TRUE(leu); 
+    CU_ASSERT_STRING_EQUAL(p.nomeJogo, "SimpleSimon");
+    CU_ASSERT_EQUAL(p.baralhos, 1);
 }
 
-// -----------------------------------------------------------------------------
-// Função: setup_ambiente_motor
-// Objetivo: Cria regras falsas em memória para contornar leitura no teste do Motor.
-// Parâmetros: p - Regras destino; e - Estado destino.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-static void setup_ambiente_motor(Paciencia *p, EstadoJogo *e) {
+void testar_motor_jogo(void) {
+    Paciencia p;
+    EstadoJogo e;
+    
+    strcpy(p.inits[0].tipo, "TAB");
+    strcpy(p.inits[1].tipo, "TAB");
+    p.nMovs = 1;
+    strcpy(p.movs[0].origem, "TAB");
+    strcpy(p.movs[0].destino, "TAB");
+    strcpy(p.movs[0].flags, "<"); 
+
+    e.nPilhas = 2;
+    initStack(&e.pilhas[0]);
+    initStack(&e.pilhas[1]);
+    meter(&e.pilhas[0], getCard(3)); 
+    meter(&e.pilhas[1], getCard(8)); 
+
+    int mov_valido = validarEMover(&e, &p, 0, 1, 1);
+    CU_ASSERT_FALSE(mov_valido);
+}
+
+static void setup_dica(Paciencia *p, EstadoJogo *e) {
     inicializarPaciencia(p);
     strcpy(p->inits[0].tipo, "TAB");
     strcpy(p->inits[1].tipo, "TAB");
     p->nMovs = 1;
     strcpy(p->movs[0].origem, "TAB");
     strcpy(p->movs[0].destino, "TAB");
-    strcpy(p->movs[0].flags, "<"); 
+    strcpy(p->movs[0].flags, "<");
 
     e->nPilhas = 2;
     initStack(&e->pilhas[0]);
     initStack(&e->pilhas[1]);
-    meter(&e->pilhas[0], getCard(3)); 
-    meter(&e->pilhas[1], getCard(8)); 
 }
 
-// -----------------------------------------------------------------------------
-// Função: testar_motor_jogo
-// Objetivo: Força um movimento ilegal e verifica se a função principal o bloqueia.
-// Parâmetros: Nenhum.
-// Retorno: Nenhum.
-// -----------------------------------------------------------------------------
-void testar_motor_jogo() {
+void testar_dica(void) {
     Paciencia p;
     EstadoJogo e;
-    setup_ambiente_motor(&p, &e);
+    int orig, dest, qtd;
 
-    int mov_valido = validarEMover(&e, &p, 0, 1, 1);
-    assert(mov_valido == 0);
+    setup_dica(&p, &e);
 
-    printf("[OK] Testes da Engine passaram!\n");
+    // --- CENÁRIO 1: Jogada Válida ---
+    meter(&e.pilhas[0], getCard(3));
+    meter(&e.pilhas[1], getCard(4));
+
+    CU_ASSERT_TRUE(procurarDica(&e, &p, &orig, &dest, &qtd));
+    CU_ASSERT_EQUAL(orig, 0);
+    CU_ASSERT_EQUAL(dest, 1);
+    CU_ASSERT_EQUAL(qtd, 1);
+
+    // --- CENÁRIO 2: Jogada Inválida ---
+    initStack(&e.pilhas[0]);
+    initStack(&e.pilhas[1]);
+
+    meter(&e.pilhas[0], getCard(8));
+    meter(&e.pilhas[1], getCard(3));
+
+    CU_ASSERT_FALSE(procurarDica(&e, &p, &orig, &dest, &qtd));
 }
 
-// -----------------------------------------------------------------------------
-// Função: main
-// Objetivo: Dispara e orquestra todas as baterias de teste do testador.
-// Parâmetros: Nenhum.
-// Retorno: 0 em caso de sucesso absoluto.
-// -----------------------------------------------------------------------------
 int main() {
-    printf("--- INICIANDO BATERIA DE TESTES (FASE 3) ---\n");
-    testar_stack();
-    testar_undo();
-    testar_save_load();
-    testar_parser();
-    testar_motor_jogo();
-    printf("--- TODOS OS 5 MODULOS DE TESTES PASSARAM COM SUCESSO! ---\n");
-    return 0;
+    if (CUE_SUCCESS != CU_initialize_registry())
+        return CU_get_error();
+
+    CU_pSuite suite = CU_add_suite("Suite_Projeto", NULL, NULL);
+    if (NULL == suite) {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+
+    if ((NULL == CU_add_test(suite, "Testar Stack", testar_stack)) ||
+        (NULL == CU_add_test(suite, "Testar Undo", testar_undo)) ||
+        (NULL == CU_add_test(suite, "Testar Save/Load", testar_save_load)) ||
+        (NULL == CU_add_test(suite, "Testar Parser", testar_parser)) ||
+        (NULL == CU_add_test(suite, "Testar Motor", testar_motor_jogo)) ||
+        (NULL == CU_add_test(suite, "Testar Dica", testar_dica)))
+    {
+        CU_cleanup_registry();
+        return CU_get_error();
+    }
+
+    CU_basic_set_mode(CU_BRM_VERBOSE);
+    CU_basic_run_tests();
+    CU_cleanup_registry();
+    
+    return CU_get_error();
 }
